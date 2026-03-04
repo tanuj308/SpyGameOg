@@ -51,10 +51,9 @@ function VotingPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const storedPlayerId = window.localStorage.getItem(LOCAL_STORAGE_PLAYER_KEY);
     const storedGameId = window.localStorage.getItem(LOCAL_STORAGE_GAME_KEY);
 
-    if (!storedPlayerId || !storedGameId) {
+    if (!storedGameId) {
       navigate('/player/join', { replace: true });
       return;
     }
@@ -67,7 +66,7 @@ function VotingPage() {
     setSubmitting(true);
     setError('');
     try {
-      await submitVote(storedGameId, storedPlayerId, selectedTarget);
+      await submitVote(storedGameId, selectedTarget);
       navigate('/player/result');
     } catch (err) {
       setError(

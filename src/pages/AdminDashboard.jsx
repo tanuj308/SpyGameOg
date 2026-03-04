@@ -1,17 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { createGame, startGame, getGameStatus } from '../services/api.js';
+import {
+  createGame,
+  startGame,
+  getAdminGameStatus,
+  getAllUsers,
+} from '../services/api.js';
 
 const LOCAL_STORAGE_GAME_KEY = 'spyGame_adminGameId';
 
 function AdminDashboard() {
-  const [playerIdsInput, setPlayerIdsInput] = useState('');
   const [word1, setWord1] = useState('');
   const [word2, setWord2] = useState('');
-  const [numSpies, setNumSpies] = useState(1);
+  const [spyCount, setSpyCount] = useState(1);
   const [gameId, setGameId] = useState(
     () => window.localStorage.getItem(LOCAL_STORAGE_GAME_KEY) || ''
   );
   const [status, setStatus] = useState(null);
+  const [allUsers, setAllUsers] = useState([]);
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -23,36 +29,27 @@ function AdminDashboard() {
     }
   }, [gameId]);
 
-  const handleCreateGame = async (e) => {
-    e.preventDefault();
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const res = await getAllUsers();
+        setAllUsers(Array.isArray(res.data) ? res.data : []);
+      } catch {
+        setAllUsers([]);
+      }
+    };
+    loadUsers();
+  }, []);
+
+  const handleCreateGame = async () => {
     setError('');
     setSuccessMessage('');
 
-    const trimmed = playerIdsInput.trim();
-    if (!trimmed || !word1 || !word2 || !numSpies) {
-      setError('Please fill in all fields.');
-      return;
-    }
-
-    const playerIds = trimmed
-      .split(',')
-      .map((id) => id.trim())
-      .filter(Boolean);
-
-    if (playerIds.length === 0) {
-      setError('Please provide at least one player ID.');
-      return;
-    }
-
     setLoading(true);
     try {
-      const response = await createGame({
-        playerIds,
-        word1,
-        word2,
-        numSpies: Number(numSpies),
-      });
-      const newGameId = response.data.gameId || response.data.id;
+      const response = await createGame();
+      const newGameId =
+        response.data?.gameId || response.data?.id || response.data?._id;
       setGameId(newGameId || '');
       setSuccessMessage(
         newGameId
@@ -75,11 +72,24 @@ function AdminDashboard() {
       setError('No Game ID found. Create a game first.');
       return;
     }
+    if (!word1 || !word2) {
+      setError('Please set Word 1 and Word 2 before starting.');
+      return;
+    }
+    if (!selectedPlayerIds.length) {
+      setError('Select at least one player before starting.');
+      return;
+    }
     setError('');
     setSuccessMessage('');
     setLoading(true);
     try {
-      await startGame(gameId);
+      await startGame(gameId, {
+        playerIds: selectedPlayerIds,
+        word1,
+        word2,
+        spyCount: Number(spyCount),
+      });
       setSuccessMessage('Game started.');
       await fetchStatus(gameId);
     } catch (err) {
@@ -96,7 +106,7 @@ function AdminDashboard() {
   const fetchStatus = async (id = gameId) => {
     if (!id) return;
     try {
-      const response = await getGameStatus(id);
+      const response = await getAdminGameStatus(id);
       setStatus(response.data);
     } catch (err) {
       // Silent status fetch failure to avoid constant alerts
@@ -114,16 +124,20 @@ function AdminDashboard() {
       <div className="card">
         <h2>Admin Dashboard</h2>
 
-        <form onSubmit={handleCreateGame} className="form">
-          <div className="form-group">
-            <label>Player IDs (comma separated)</label>
-            <input
-              type="text"
-              value={playerIdsInput}
-              onChange={(e) => setPlayerIdsInput(e.target.value)}
-              placeholder="player1, player2, player3"
-            />
-          </div>
+        <div className="section">
+          <h3>Create Game</h3>
+          <button
+            type="button"
+            className="btn primary"
+            onClick={handleCreateGame}
+            disabled={loading}
+          >
+            {loading ? 'Creating...' : 'Create Game'}
+          </button>
+        </div>
+
+        <form className="form section" onSubmit={(e) => e.preventDefault()}>
+          <h3>Lobby Setup</h3>
           <div className="form-group">
             <label>Word 1 (Citizens)</label>
             <input
@@ -145,13 +159,43 @@ function AdminDashboard() {
             <input
               type="number"
               min="1"
-              value={numSpies}
-              onChange={(e) => setNumSpies(e.target.value)}
+              value={spyCount}
+              onChange={(e) => setSpyCount(e.target.value)}
             />
           </div>
-          <button type="submit" className="btn primary" disabled={loading}>
-            {loading ? 'Creating...' : 'Create Game'}
-          </button>
+
+          <div className="form-group">
+            <label>Players (registered users)</label>
+            {allUsers.length === 0 ? (
+              <p>No users found. Create player accounts first.</p>
+            ) : (
+              <div className="checkbox-list">
+                {allUsers
+                  .filter((u) => u.role !== 'Admin')
+                  .map((u) => {
+                    const id = u._id;
+                    const checked = selectedPlayerIds.includes(id);
+                    return (
+                      <label key={id} className="checkbox-item">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            setSelectedPlayerIds((prev) => {
+                              if (prev.includes(id)) {
+                                return prev.filter((x) => x !== id);
+                              }
+                              return [...prev, id];
+                            });
+                          }}
+                        />
+                        <span>{u.username}</span>
+                      </label>
+                    );
+                  })}
+              </div>
+            )}
+          </div>
         </form>
 
         <div className="section">
@@ -193,7 +237,7 @@ function AdminDashboard() {
         <div className="card">
           <h3>Current Game Status</h3>
           <p>
-            <strong>Game ID:</strong> {status.gameId || gameId}
+            <strong>Game ID:</strong> {status._id || status.gameId || gameId}
           </p>
           <p>
             <strong>Status:</strong> {status.status}
@@ -201,17 +245,13 @@ function AdminDashboard() {
           <p>
             <strong>Current Round:</strong> {status.currentRound}
           </p>
-          {typeof status.numSpies !== 'undefined' && (
-            <p>
-              <strong>Number of Spies:</strong> {status.numSpies}
-            </p>
-          )}
 
           <div className="table-wrapper">
             <table>
               <thead>
                 <tr>
                   <th>Player ID</th>
+                  <th>Username</th>
                   <th>Role</th>
                   <th>Alive</th>
                   <th>Points</th>
@@ -219,8 +259,9 @@ function AdminDashboard() {
               </thead>
               <tbody>
                 {(status.players || []).map((p) => (
-                  <tr key={p.id || p.user || p.playerId}>
-                    <td>{p.id || p.user || p.playerId}</td>
+                  <tr key={p.user?._id || p.user || p.id || p.playerId}>
+                    <td>{p.user?._id || p.user || p.id || p.playerId}</td>
+                    <td>{p.user?.username || '-'}</td>
                     <td>{p.role}</td>
                     <td>{p.isAlive ? 'Yes' : 'No'}</td>
                     <td>{typeof p.points !== 'undefined' ? p.points : '-'}</td>

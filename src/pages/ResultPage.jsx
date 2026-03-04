@@ -74,17 +74,22 @@ function ResultPage() {
 
   let eliminatedPlayerLabel = 'No elimination yet.';
   if (lastHistoryEntry) {
-    const eliminatedId = lastHistoryEntry.eliminatedPlayer;
+    const eliminatedId =
+      lastHistoryEntry.eliminatedPlayer?._id || lastHistoryEntry.eliminatedPlayer;
     let displayName = eliminatedId;
     if (Array.isArray(status.players)) {
       const found = status.players.find(
         (p) =>
           p.id === eliminatedId ||
           p.user === eliminatedId ||
-          p.playerId === eliminatedId
+          p.playerId === eliminatedId ||
+          p.user?._id === eliminatedId ||
+          p.user?._id === lastHistoryEntry.eliminatedPlayer?._id
       );
       if (found && (found.name || found.username)) {
         displayName = found.name || found.username;
+      } else if (found?.user?.username) {
+        displayName = found.user.username;
       }
     }
     eliminatedPlayerLabel = `${displayName} (${lastHistoryEntry.eliminatedRole})`;

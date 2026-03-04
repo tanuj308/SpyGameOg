@@ -197,6 +197,25 @@ th {
   margin-bottom: 0.25rem;
 }
 
+.checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.5rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: #fafafa;
+  max-height: 240px;
+  overflow: auto;
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+}
+
 @media (max-width: 640px) {
   .app-header-inner {
     flex-direction: column;

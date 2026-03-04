@@ -28,19 +28,16 @@ function PlayerDashboard() {
       setError('');
       try {
         const [wordRes, statusRes] = await Promise.all([
-          getPlayerWord(storedGameId, storedPlayerId),
+          getPlayerWord(storedGameId),
           getGameStatus(storedGameId),
         ]);
 
         setWord(wordRes.data.word);
 
         const status = statusRes.data;
-        if (typeof status.numSpies !== 'undefined') {
-          setNumSpies(status.numSpies);
-        } else if (Array.isArray(status.players)) {
-          const spyCount = status.players.filter((p) => p.role === 'Spy').length;
-          setNumSpies(spyCount || null);
-        }
+        // Public status doesn't include spyCount; keep null if not provided.
+        // If you want the spy count visible to players, the backend must expose it safely.
+        if (typeof status.numSpies !== 'undefined') setNumSpies(status.numSpies);
 
         if (Array.isArray(status.players)) {
           const alive = status.players.filter((p) => p.isAlive);

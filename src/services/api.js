@@ -39,26 +39,37 @@ export function login({ username, password }) {
   });
 }
 
+export function register({ username, password, role }) {
+  return api.post('/api/auth/register', { username, password, role });
+}
+
+export function getAllUsers() {
+  return api.get('/api/auth/users');
+}
+
 // Admin APIs
 
-export function createGame({ playerIds, word1, word2, numSpies }) {
-  // Expects backend to create a game, assign roles/words, and return a unique gameId
-  return api.post('/api/games', {
+export function createGame() {
+  // Backend creates an empty game in Lobby and returns the game document
+  return api.post('/api/games');
+}
+
+export function startGame(gameId, { playerIds, word1, word2, spyCount }) {
+  return api.put(`/api/games/${encodeURIComponent(gameId)}/start`, {
     playerIds,
     word1,
     word2,
-    numSpies,
+    spyCount,
   });
 }
 
-export function startGame(gameId) {
-  // Starts the game (e.g. change status to InProgress)
-  return api.put(`/api/games/${encodeURIComponent(gameId)}/start`);
+export function getGameStatus(gameId) {
+  // Public status (no roles/words). Backend includes points, but UI can ignore it for players.
+  return api.get(`/api/games/${encodeURIComponent(gameId)}/status`);
 }
 
-export function getGameStatus(gameId) {
-  // Returns full game state. Admin can see roles and scores.
-  return api.get(`/api/games/${encodeURIComponent(gameId)}/status`);
+export function getAdminGameStatus(gameId) {
+  return api.get(`/api/games/${encodeURIComponent(gameId)}/admin/status`);
 }
 
 // Player APIs
@@ -68,17 +79,14 @@ export function validateGame(gameId) {
   return api.get(`/api/games/${encodeURIComponent(gameId)}/status`);
 }
 
-export function getPlayerWord(gameId, playerId) {
-  // Backend should return { word, isAlive, numSpies?, alivePlayers? }
-  // If backend still uses JWT, it can ignore playerId and rely on auth instead.
-  return api.get(`/api/games/${encodeURIComponent(gameId)}/word`, {
-    params: { playerId },
-  });
+export function getPlayerWord(gameId) {
+  // JWT-protected. Returns { word, isAlive }
+  return api.get(`/api/games/${encodeURIComponent(gameId)}/word`);
 }
 
-export function submitVote(gameId, voterId, targetId) {
-  return api.post(`/api/games/${encodeURIComponent(gameId)}/vote`, {
-    voterId,
+export function submitVote(gameId, targetId) {
+  // JWT-protected. Voter is derived from token.
+  return api.post(`/api/votes/${encodeURIComponent(gameId)}/vote`, {
     targetId,
   });
 }
