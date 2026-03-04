@@ -31,7 +31,8 @@ const AdminDashboard = () => {
     try {
       try { await authAPI.register({ username: adminName, password: adminPass, role: 'Admin' }); } catch(err){}
       const res = await authAPI.login({ username: adminName, password: adminPass });
-      localStorage.setItem('token', res.data.token);
+      // Store admin token separately so player tabs don't overwrite it.
+      localStorage.setItem('adminToken', res.data.token);
       setLoggedIn(true);
     } catch (err) {
       alert('Login failed');

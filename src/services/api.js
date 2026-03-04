@@ -1,27 +1,56 @@
 import axios from 'axios';
 
-const api = axios.create({
-  baseURL: 'http://localhost:5000',
-});
+const BASE_URL = 'http://localhost:5000';
 
-const TOKEN_KEY = 'spyGame_token';
+const adminApi = axios.create({ baseURL: BASE_URL });
+const playerApi = axios.create({ baseURL: BASE_URL });
 
-export function getAuthToken() {
-  return window.localStorage.getItem(TOKEN_KEY);
-}
+const ADMIN_TOKEN_KEY = 'spyGame_adminToken';
+const PLAYER_TOKEN_KEY = 'spyGame_playerToken';
+const ADMIN_USER_KEY = 'spyGame_adminUser';
+const PLAYER_USER_KEY = 'spyGame_playerUser';
 
-export function setAuthToken(token) {
-  if (token) {
-    window.localStorage.setItem(TOKEN_KEY, token);
+function getStoredJson(key) {
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
   }
 }
 
-export function clearAuthToken() {
-  window.localStorage.removeItem(TOKEN_KEY);
+function setStoredJson(key, value) {
+  window.localStorage.setItem(key, JSON.stringify(value));
 }
 
-api.interceptors.request.use((config) => {
-  const token = getAuthToken();
+export function getAdminToken() {
+  return window.localStorage.getItem(ADMIN_TOKEN_KEY);
+}
+
+export function getPlayerToken() {
+  return window.localStorage.getItem(PLAYER_TOKEN_KEY);
+}
+
+export function getAdminUser() {
+  return getStoredJson(ADMIN_USER_KEY);
+}
+
+export function getPlayerUser() {
+  return getStoredJson(PLAYER_USER_KEY);
+}
+
+export function clearAdminSession() {
+  window.localStorage.removeItem(ADMIN_TOKEN_KEY);
+  window.localStorage.removeItem(ADMIN_USER_KEY);
+}
+
+export function clearPlayerSession() {
+  window.localStorage.removeItem(PLAYER_TOKEN_KEY);
+  window.localStorage.removeItem(PLAYER_USER_KEY);
+}
+
+adminApi.interceptors.request.use((config) => {
+  const token = getAdminToken();
   if (token) {
     // eslint-disable-next-line no-param-reassign
     config.headers.Authorization = `Bearer ${token}`;
@@ -29,33 +58,54 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-export function login({ username, password }) {
-  return api.post('/api/auth/login', { username, password }).then((res) => {
+playerApi.interceptors.request.use((config) => {
+  const token = getPlayerToken();
+  if (token) {
+    // eslint-disable-next-line no-param-reassign
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+export function adminLogin({ username, password }) {
+  return adminApi.post('/api/auth/login', { username, password }).then((res) => {
     const token = res.data?.token;
-    if (token) {
-      setAuthToken(token);
-    }
+    const user = res.data?.user;
+    if (token) window.localStorage.setItem(ADMIN_TOKEN_KEY, token);
+    if (user) setStoredJson(ADMIN_USER_KEY, user);
+    return res;
+  });
+}
+
+export function playerLogin({ username, password }) {
+  return playerApi.post('/api/auth/login', { username, password }).then((res) => {
+    const token = res.data?.token;
+    const user = res.data?.user;
+    if (token) window.localStorage.setItem(PLAYER_TOKEN_KEY, token);
+    if (user) setStoredJson(PLAYER_USER_KEY, user);
     return res;
   });
 }
 
 export function register({ username, password, role }) {
-  return api.post('/api/auth/register', { username, password, role });
+  // registration doesn't require auth, use plain axios instance
+  return axios.post(`${BASE_URL}/api/auth/register`, { username, password, role });
 }
 
 export function getAllUsers() {
-  return api.get('/api/auth/users');
+  // In your backend this route is public (no auth middleware)
+  return axios.get(`${BASE_URL}/api/auth/users`);
 }
 
 // Admin APIs
 
 export function createGame() {
   // Backend creates an empty game in Lobby and returns the game document
-  return api.post('/api/games');
+  return adminApi.post('/api/games');
 }
 
 export function startGame(gameId, { playerIds, word1, word2, spyCount }) {
-  return api.put(`/api/games/${encodeURIComponent(gameId)}/start`, {
+  return adminApi.put(`/api/games/${encodeURIComponent(gameId)}/start`, {
     playerIds,
     word1,
     word2,
@@ -65,28 +115,28 @@ export function startGame(gameId, { playerIds, word1, word2, spyCount }) {
 
 export function getGameStatus(gameId) {
   // Public status (no roles/words). Backend includes points, but UI can ignore it for players.
-  return api.get(`/api/games/${encodeURIComponent(gameId)}/status`);
+  return axios.get(`${BASE_URL}/api/games/${encodeURIComponent(gameId)}/status`);
 }
 
 export function getAdminGameStatus(gameId) {
-  return api.get(`/api/games/${encodeURIComponent(gameId)}/admin/status`);
+  return adminApi.get(`/api/games/${encodeURIComponent(gameId)}/admin/status`);
 }
 
 // Player APIs
 
 export function validateGame(gameId) {
   // Simple validation that the game exists and is accessible
-  return api.get(`/api/games/${encodeURIComponent(gameId)}/status`);
+  return getGameStatus(gameId);
 }
 
 export function getPlayerWord(gameId) {
   // JWT-protected. Returns { word, isAlive }
-  return api.get(`/api/games/${encodeURIComponent(gameId)}/word`);
+  return playerApi.get(`/api/games/${encodeURIComponent(gameId)}/word`);
 }
 
 export function submitVote(gameId, targetId) {
   // JWT-protected. Voter is derived from token.
-  return api.post(`/api/votes/${encodeURIComponent(gameId)}/vote`, {
+  return playerApi.post(`/api/votes/${encodeURIComponent(gameId)}/vote`, {
     targetId,
   });
 }
@@ -96,5 +146,5 @@ export function getRoundStatus(gameId) {
   return getGameStatus(gameId);
 }
 
-export default api;
+export default axios;
 

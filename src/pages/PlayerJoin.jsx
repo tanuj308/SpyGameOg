@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { validateGame, login, register } from '../services/api.js';
+import { validateGame, playerLogin, register } from '../services/api.js';
 
 const LOCAL_STORAGE_PLAYER_KEY = 'spyGame_playerId';
 const LOCAL_STORAGE_GAME_KEY = 'spyGame_gameId';
@@ -31,7 +31,7 @@ function PlayerJoin() {
       if (mode === 'register') {
         await register({ username, password, role: 'Player' });
       }
-      const loginRes = await login({ username, password });
+      const loginRes = await playerLogin({ username, password });
       const userId = loginRes.data?.user?.id;
       if (userId) {
         window.localStorage.setItem(LOCAL_STORAGE_PLAYER_KEY, userId);

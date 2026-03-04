@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { login } from '../services/api.js';
+import { adminLogin } from '../services/api.js';
 
 function Login() {
   const [username, setUsername] = useState('');
@@ -22,7 +22,11 @@ function Login() {
     }
     setLoading(true);
     try {
-      await login({ username, password });
+      const res = await adminLogin({ username, password });
+      if (res.data?.user?.role !== 'Admin') {
+        setError('Access denied. Requires Admin privileges.');
+        return;
+      }
       navigate(from, { replace: true });
     } catch (err) {
       setError(
